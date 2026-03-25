@@ -1,0 +1,318 @@
+{
+  "tables": {
+    "billing_document_headers": [
+      "billing_document",
+      "billing_document_type",
+      "creation_date",
+      "last_change_datetime",
+      "billing_document_date",
+      "is_cancelled",
+      "total_net_amount",
+      "currency",
+      "company_code",
+      "fiscal_year",
+      "accounting_document",
+      "sold_to_party",
+      "raw"
+    ],
+    "billing_document_items": [
+      "billing_document",
+      "billing_document_item",
+      "material",
+      "billing_quantity",
+      "billing_quantity_unit",
+      "net_amount",
+      "currency",
+      "reference_sd_document",
+      "reference_sd_document_item",
+      "raw"
+    ],
+    "billing_document_cancellations": [
+      "billing_document",
+      "is_cancelled",
+      "cancelled_billing_document",
+      "raw"
+    ],
+    "business_partners": [
+      "business_partner",
+      "customer",
+      "full_name",
+      "category",
+      "created_by",
+      "creation_date",
+      "last_change_date",
+      "is_blocked",
+      "raw"
+    ],
+    "business_partner_addresses": [
+      "business_partner",
+      "address_id",
+      "city",
+      "country",
+      "postal_code",
+      "region",
+      "street",
+      "raw"
+    ],
+    "customer_company_assignments": [
+      "customer",
+      "company_code",
+      "reconciliation_account",
+      "customer_account_group",
+      "raw"
+    ],
+    "customer_sales_area_assignments": [
+      "customer",
+      "sales_organization",
+      "distribution_channel",
+      "division",
+      "currency",
+      "payment_terms",
+      "raw"
+    ],
+    "sales_order_headers": [
+      "sales_order",
+      "sales_order_type",
+      "sales_organization",
+      "distribution_channel",
+      "division",
+      "sold_to_party",
+      "creation_date",
+      "total_net_amount",
+      "currency",
+      "raw"
+    ],
+    "sales_order_items": [
+      "sales_order",
+      "sales_order_item",
+      "material",
+      "requested_quantity",
+      "net_amount",
+      "plant",
+      "storage_location",
+      "raw"
+    ],
+    "sales_order_schedule_lines": [
+      "sales_order",
+      "sales_order_item",
+      "schedule_line",
+      "confirmed_delivery_date",
+      "confirmed_quantity",
+      "raw"
+    ],
+    "outbound_delivery_headers": [
+      "delivery_document",
+      "creation_date",
+      "shipping_point",
+      "goods_movement_status",
+      "raw"
+    ],
+    "outbound_delivery_items": [
+      "delivery_document",
+      "delivery_document_item",
+      "plant",
+      "storage_location",
+      "reference_sd_document",
+      "raw"
+    ],
+    "journal_entry_items_ar": [
+      "company_code",
+      "fiscal_year",
+      "accounting_document",
+      "accounting_document_item",
+      "gl_account",
+      "customer",
+      "amount",
+      "currency",
+      "posting_date",
+      "raw",
+      "company_code",
+      "fiscal_year",
+      "accounting_document",
+      "accounting_document_item"
+    ],
+    "payments_ar": [
+      "company_code",
+      "fiscal_year",
+      "accounting_document",
+      "accounting_document_item",
+      "customer",
+      "amount",
+      "currency",
+      "posting_date",
+      "raw",
+      "company_code",
+      "fiscal_year",
+      "accounting_document",
+      "accounting_document_item"
+    ],
+    "products": [
+      "product",
+      "product_type",
+      "product_group",
+      "base_unit",
+      "gross_weight",
+      "net_weight",
+      "raw"
+    ],
+    "product_descriptions": [
+      "product",
+      "language",
+      "description",
+      "raw"
+    ],
+    "product_plants": [
+      "product",
+      "plant",
+      "profit_center",
+      "raw"
+    ],
+    "product_storage_locations": [
+      "product",
+      "plant",
+      "storage_location",
+      "raw"
+    ],
+    "plants": [
+      "plant",
+      "plant_name",
+      "company_code",
+      "sales_organization",
+      "raw"
+    ]
+  },
+  "relationships": [
+    {
+      "from": "sales_order_headers",
+      "to": "sales_order_items",
+      "type": "HAS_ITEM",
+      "condition": "sales_order = sales_order"
+    },
+    {
+      "from": "sales_order_items",
+      "to": "sales_order_schedule_lines",
+      "type": "HAS_SCHEDULE",
+      "condition": "sales_order = sales_order AND sales_order_item = sales_order_item"
+    },
+    {
+      "from": "sales_order_headers",
+      "to": "business_partners",
+      "type": "ORDERED_BY",
+      "condition": "sold_to_party = business_partner"
+    },
+    {
+      "from": "sales_order_items",
+      "to": "outbound_delivery_items",
+      "type": "DELIVERED_AS",
+      "condition": "sales_order = reference_sd_document"
+    },
+    {
+      "from": "outbound_delivery_headers",
+      "to": "outbound_delivery_items",
+      "type": "HAS_ITEM",
+      "condition": "delivery_document = delivery_document"
+    },
+    {
+      "from": "outbound_delivery_items",
+      "to": "plants",
+      "type": "SHIPPED_FROM",
+      "condition": "plant = plant"
+    },
+    {
+      "from": "outbound_delivery_items",
+      "to": "billing_document_items",
+      "type": "BILLED_AS",
+      "condition": "delivery_document = reference_sd_document"
+    },
+    {
+      "from": "billing_document_headers",
+      "to": "billing_document_items",
+      "type": "HAS_ITEM",
+      "condition": "billing_document = billing_document"
+    },
+    {
+      "from": "billing_document_headers",
+      "to": "business_partners",
+      "type": "BILLED_TO",
+      "condition": "sold_to_party = business_partner"
+    },
+    {
+      "from": "billing_document_headers",
+      "to": "billing_document_cancellations",
+      "type": "CANCELLED_BY",
+      "condition": "billing_document = billing_document"
+    },
+    {
+      "from": "billing_document_headers",
+      "to": "journal_entry_items_ar",
+      "type": "POSTED_TO",
+      "condition": "accounting_document = accounting_document"
+    },
+    {
+      "from": "journal_entry_items_ar",
+      "to": "business_partners",
+      "type": "BELONGS_TO_CUSTOMER",
+      "condition": "customer = business_partner"
+    },
+    {
+      "from": "journal_entry_items_ar",
+      "to": "payments_ar",
+      "type": "CLEARED_BY",
+      "condition": "accounting_document = accounting_document"
+    },
+    {
+      "from": "sales_order_items",
+      "to": "products",
+      "type": "CONTAINS_PRODUCT",
+      "condition": "material = product"
+    },
+    {
+      "from": "billing_document_items",
+      "to": "products",
+      "type": "BILLED_PRODUCT",
+      "condition": "material = product"
+    },
+    {
+      "from": "products",
+      "to": "product_descriptions",
+      "type": "HAS_DESCRIPTION",
+      "condition": "product = product"
+    },
+    {
+      "from": "products",
+      "to": "product_plants",
+      "type": "AVAILABLE_IN",
+      "condition": "product = product"
+    },
+    {
+      "from": "product_plants",
+      "to": "plants",
+      "type": "LOCATED_AT",
+      "condition": "plant = plant"
+    },
+    {
+      "from": "products",
+      "to": "product_storage_locations",
+      "type": "STORED_AT",
+      "condition": "product = product"
+    },
+    {
+      "from": "business_partners",
+      "to": "business_partner_addresses",
+      "type": "HAS_ADDRESS",
+      "condition": "business_partner = business_partner"
+    },
+    {
+      "from": "business_partners",
+      "to": "customer_company_assignments",
+      "type": "ASSIGNED_TO_COMPANY",
+      "condition": "customer = customer"
+    },
+    {
+      "from": "business_partners",
+      "to": "customer_sales_area_assignments",
+      "type": "ASSIGNED_TO_SALES_AREA",
+      "condition": "customer = customer"
+    }
+  ]
+}
