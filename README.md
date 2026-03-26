@@ -1,6 +1,18 @@
 # AI-Graph Explorer
 
-A natural language-powered graph exploration framework for navigating complex relational datasets through conversation, visual graphs, and structured table inspection.
+A natural language-powered graph exploration framework for navigating complex unstructured relational datasets through conversation, visual graphs, and structured table inspection.
+
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=flat-square&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/Express.js-Backend-000000?style=flat-square&logo=express&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![React Flow](https://img.shields.io/badge/ReactFlow-Graph_UI-FF0072?style=flat-square&logo=react&logoColor=white)
+![D3.js](https://img.shields.io/badge/D3.js-Visualization-F9A03C?style=flat-square&logo=d3.js&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-State_Management-000000?style=flat-square)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=flat-square&logo=supabase&logoColor=white)
+![Neo4j](https://img.shields.io/badge/Neo4j-Aura-008CC1?style=flat-square&logo=neo4j&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google-Gemini_AI-4285F4?style=flat-square&logo=google&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-Build_Tool-646CFF?style=flat-square&logo=vite&logoColor=white)
 
 ---
 
