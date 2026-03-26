@@ -104,9 +104,9 @@ The central workspace contains three functional views:
 </p>
 
 <p align="center">
-  <img src="./assets/ui/schema-view.png" width="800"/>
+  <img src="./assets/ui/schema-view" width="800"/>
 </p>
- 
+
 ---
  
 ## Executing a Query
