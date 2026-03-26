@@ -1,47 +1,14 @@
-# Graph Explorer
 
-A full-stack, AI-powered Graph Visualization and Data Exploration platform.
+
+
+
+
+# AI-Graph Explorer
+ 
+> A natural language-powered graph exploration tool for navigating complex datasets through conversation, visual graphs, and structured tables.
 This framework takes natural language questions ("Show me sales orders related to delivery X"),
 deduces the required database multi-hop join paths using Google Gemini, runs the SQL natively, and
 builds a real-time reactive Graph showing how the extracted rows relate to each other.
-
-## Architecture Structure
-
-The mono-repository is structured cleanly separating concerns:
-
-### /frontend
-A React.js application rendering real-time graphs with D3-force optimization via React Flow.
-- **`src/components/`**: Pure UI layout components, separated from logic.
-- **`src/hooks/`**: Business logic extraction (e.g., `useChatEngine.js` for API syncing).
-- **`src/store/`**: Global Zustand state for history caching and view modes.
-
-### /backend
-An Express Node.js application driving the AI interpretation pipeline.
-- **`src/controllers/`**: HTTP Request mapping directly controlling the business flow.
-- **`src/services/`**: Independent, testable layers (Multi-Hop deduction, Neo4j Graph Builder, Postgres Execution Queue).
-- **`src/config/`**: Centralized Database credentials and Schema mappings.
-- **`src/scripts/`**: Development utility scripts for pinging and validating DB/AI models.
-
-## Usage
-
-**Frontend**
-```bash
-cd frontend
-npm run dev
-```
-
-**Backend**
-```bash
-cd backend
-node index.js
-```
-
-
-Copy
-
-# Dodge-AI Graph Explorer
- 
-> A natural language-powered graph exploration tool for navigating complex datasets through conversation, visual graphs, and structured tables.
  
 ---
  
@@ -716,11 +683,337 @@ graph-Explorer/
 │       │   ├── cacheService.js       # SHA-256 disk plan cache
 │       │   └── keyManager.js         # Round-robin API key rotation
 │       └── utils/           # Helpers (schemaLoader, validatePlan)
-│
-├── runner.sh                # One-command production restart script
 ├── README.md                # Project overview
-├── QUERY_PIPELINE.md        # End-to-end query flow documentation
-└── ARCHITECTURE.md          # This file
 ```
 
+
+# 🚀 Complete Local Setup Guide (0 → 100)
+
+Everything you need to clone this project and run it locally — from creating accounts to starting the servers.
+
+---
+
+## 📋 Prerequisites
+
+Install these on your local machine before starting:
+
+| Tool | Version | Download |
+|---|---|---|
+| Node.js | v20+ | https://nodejs.org |
+| Git | Latest | https://git-scm.com |
+| npm | v10+ (comes with Node.js) | — |
+
+Verify:
+```bash
+node -v    # Should print v20.x.x
+npm -v     # Should print 10.x.x
+```
+
+---
+
+## 🗂️ Step 1 — Clone the Repository
+
+```bash
+git clone https://github.com/AnkitCHAKRABORTY0510/AI-graph-explorer.git
+cd AI-graph-explorer
+```
+
+---
+
+## 🗄️ Step 2 — Create a Supabase Account (PostgreSQL)
+
+Supabase is a free hosted PostgreSQL cloud database. Your app reads business data from here.
+
+### 2.1 Create Account
+
+1. Go to [https://supabase.com](https://supabase.com)
+2. Click **Start your project** → Sign up with GitHub or Email
+3. Click **New Project**
+4. Enter a **Project Name** (e.g. `graph-explorer`)
+5. Set a strong **database password** — save it, you'll need it
+6. Choose the **region** closest to you
+7. Click **Create new project** (takes ~2 minutes to provision)
+
+### 2.2 Get Your Connection Credentials
+
+Once the project is ready:
+
+1. In the left sidebar → **Project Settings** → **Database**
+2. Scroll down to **Connection parameters**
+3. Copy these values:
+
+| .env Key | Where to find it |
+|---|---|
+| `DB_HOST` | Host field (e.g. `db.xxxx.supabase.co`) |
+| `DB_PORT` | Always `5432` |
+| `DB_USER` | Always `postgres` |
+| `DB_PASSWORD` | The password you set in Step 2.1 |
+| `DB_NAME` | Always `postgres` |
+
+### 2.3 Upload Your Schema to Supabase
+
+Your schema lives in a SQL file. You need to create the tables in Supabase first.
+
+1. In Supabase sidebar → click **SQL Editor**
+2. Click **New Query**
+3. Open the file `backend/db/schema.sql` from this project in a text editor
+4. Copy the entire content and paste it into the Supabase SQL editor
+5. Click **Run** (▶️)
+6. You should see "Success. No rows returned" — your tables are now created
+
+### 2.4 Upload Your Data (the `raw` column)
+
+Each table has a `raw` column that stores the original JSON payload for each row.
+
+To insert your actual business data:
+
+1. In Supabase → **Table Editor** → select a table (e.g. `sales_order_headers`)
+2. Click **Import Data** → Upload a CSV file, or
+3. Use the SQL Editor to run `INSERT INTO` statements
+
+**Example insert format:**
+```sql
+INSERT INTO sales_order_headers (sales_order, sales_order_type, sold_to_party, creation_date, total_net_amount, currency, raw)
+VALUES ('5000001', 'OR', 'CUST-001', '2024-01-15', 25000.00, 'USD', '{"original": "json payload"}');
+```
+
+---
+
+## 🌐 Step 3 — Create a Neo4j Aura Account (Graph Database)
+
+Neo4j Aura is the free hosted graph database. Your app builds and queries dynamic graphs here.
+
+### 3.1 Create Account
+
+1. Go to [https://neo4j.com/cloud/platform/aura-graph-database](https://neo4j.com/cloud/platform/aura-graph-database)
+2. Click **Start Free**
+3. Sign up with GitHub/Google or Email
+4. Click **Create Free Instance**
+5. Name it (e.g. `graph-explorer`) → Click **Create**
+6. **IMPORTANT**: A popup will appear showing your credentials. **Download or copy them immediately** — Neo4j only shows the password once.
+
+### 3.2 Get Your Connection Credentials
+
+After creating the instance, click on it in the dashboard. You'll see:
+
+| .env Key | Where to find it |
+|---|---|
+| `NEO4J_URI` | The **Connection URI** field (e.g. `neo4j+s://xxxxxxxx.databases.neo4j.io`) |
+| `NEO4J_USERNAME` | Always `neo4j` |
+| `NEO4J_PASSWORD` | The password shown during creation |
+| `NEO4J_DATABASE` | The **Instance ID** shown on the instance card (e.g. `1fa8d248`) |
+| `AURA_INSTANCEID` | Same as `NEO4J_DATABASE` |
+| `AURA_INSTANCENAME` | The name you gave it (e.g. `Free instance`) |
+
+### 3.3 How Neo4j Interacts With Supabase (PostgreSQL)
+
+Neo4j does **not** connect to Supabase directly. The flow is:
+
+```
+1. PostgreSQL (Supabase) → returns SQL rows
+2. Backend takes those rows as "$rows"
+3. Cypher query runs on Neo4j: UNWIND $rows AS row
+4. Neo4j MERGES nodes + edges from the PostgreSQL data
+5. Neo4j returns the graph structure back to the frontend
+```
+
+This means **Neo4j is always in sync with your PostgreSQL data** because the graph is built fresh from real database rows every time a query runs. Neo4j acts as a **read-time graph projection engine**, not a separate data store.
+
+---
+
+## 🤖 Step 4 — Get Gemini API Keys (Google AI)
+
+The AI interpreter uses Google Gemini. You need at least 1 key (up to 5 for better rate limits).
+
+### 4.1 Get Your First Key
+
+1. Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click **Create API Key**
+4. Copy the key (starts with `AIzaSy...`)
+5. Paste into `GEMINI_API_KEY1=` in your `.env`
+
+### 4.2 Add More Keys for Better Rate Limits
+
+The system automatically rotates through up to 5 keys to avoid hitting the per-minute quota.
+
+- Repeat Step 4.1 with **different Google accounts** (e.g. personal + work + new accounts)
+- Paste each key into `GEMINI_API_KEY2`, `GEMINI_API_KEY3`, etc.
+- Having 5 keys effectively multiplies your usable rate limit by 5×
+
+---
+
+## ⚙️ Step 5 — Configure Environment Variables
+
+### 5.1 Create Backend `.env`
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Open `.env` and fill in all the values you collected above:
+
+```env
+# Supabase PostgreSQL
+DB_HOST=db.xxxx.supabase.co
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_supabase_password
+DB_NAME=postgres
+
+# Neo4j Aura
+NEO4J_URI=neo4j+s://xxxxxxxx.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your_neo4j_password
+NEO4J_DATABASE=xxxxxxxx
+AURA_INSTANCEID=xxxxxxxx
+AURA_INSTANCENAME=Free instance
+
+# Gemini API Keys (add as many as you have)
+GEMINI_API_KEY1=AIzaSy...
+GEMINI_API_KEY2=AIzaSy...
+GEMINI_API_KEY3=AIzaSy...
+```
+
+### 5.2 Create Frontend `.env`
+
+```bash
+cd ../frontend
+```
+
+Create a `.env` file in the `frontend/` folder:
+
+```env
+VITE_API_URL=http://localhost:3000
+```
+
+> **Note:** This is only needed if you want to override the API URL. The app defaults to this automatically.
+
+---
+
+## 🗺️ Step 6 — Generate the Schema JSON
+
+After uploading your tables to Supabase, you need to generate a `schema.json` file. This is what the AI reads to understand your database structure and write correct SQL.
+
+### 6.1 What the Script Does
+
+The `schema-Json-generator.js` script reads your `schema.sql` file, parses every `CREATE TABLE` block, extracts all column names and foreign key relationships, and outputs a clean `schema.json`.
+
+### 6.2 Run the Generator
+
+```bash
+cd backend
+node scripts/schema-Json-generator.js
+```
+
+You should see:
+```
+📄 Reading schema.sql...
+Parsing schema...
+Writing schema.json...
+✅ schema.json generated successfully!
+📊 Tables found: 19
+🔗 Relationships found: 23
+```
+
+This creates `backend/db/schema.json`. The backend loads this at startup and injects it into every Gemini AI prompt so the AI knows exactly your database structure.
+
+> **Whenever you change your database schema**, re-run this script to keep the AI in sync.
+
+---
+
+## 📦 Step 7 — Install Dependencies
+
+### 7.1 Backend
+
+```bash
+cd backend
+npm install
+```
+
+### 7.2 Frontend
+
+```bash
+cd ../frontend
+npm install
+```
+
+---
+
+## ▶️ Step 8 — Run the Application
+
+You need **two terminal windows** running simultaneously.
+
+### Terminal 1 — Start the Backend
+
+```bash
+cd backend
+node index.js
+```
+
+You should see:
+```
+✅ Backend server running on 0.0.0.0:3000
+🗄️ PostgreSQL pool connected
+🌐 Neo4j driver initialized
+```
+
+### Terminal 2 — Start the Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+You should see:
+```
+VITE v8.x.x  ready in 999 ms
+➜  Local:   http://localhost:5173/
+```
+
+---
+
+## 🌐 Step 9 — Open the App
+
+Navigate to **http://localhost:5173** in your browser.
+
+You should see the Graph Explorer interface with the Chat sidebar on the right. Try typing:
+
+> *"Show me recent sales orders"*
+
+---
+
+## ✅ Verifying Everything Works
+
+| Check | Command / URL | Expected |
+|---|---|---|
+| Backend is running | `curl http://localhost:3000/schema` | Returns your schema JSON |
+| Frontend is running | Open `http://localhost:5173` | App loads in browser |
+| AI works | Type a query in chat | Graph or table appears |
+| Neo4j connected | Query involving "graph" or "flow" | Graph nodes render on canvas |
+
+---
+
+## 🛠️ Common Issues & Fixes
+
+### `Error: Connection terminated unexpectedly`
+→ Your Supabase credentials are wrong. Double-check `DB_HOST`, `DB_PASSWORD`, and `DB_NAME` in `.env`.
+
+### `Neo4j ServiceUnavailable: Could not perform discovery`
+→ Your `NEO4J_URI` is wrong. Make sure it starts with `neo4j+s://` (with the `+s` for SSL).
+
+### `429 Too Many Requests` from Gemini
+→ You've hit the rate limit. Add more API keys to `GEMINI_API_KEY2` through `GEMINI_API_KEY5`. The system will automatically rotate through them.
+
+### `Schema MISS` or wrong SQL from AI
+→ Your `schema.json` is outdated. Re-run the schema generator:
+```bash
+cd backend && node scripts/schema-Json-generator.js
+```
+
+### Blank graph / no nodes
+→ The SQL returned data but the Cypher failed. Check your backend terminal logs for the error. Usually a column name mismatch between SQL results and the Cypher `UNWIND $rows AS row` variable names.
+
+---
 
