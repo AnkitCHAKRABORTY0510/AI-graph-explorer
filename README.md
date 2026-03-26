@@ -117,7 +117,7 @@ The central workspace contains three functional views:
 4. The query is **logged in the sidebar** for later reuse.
  
 <p align="center">
-  <img src="./assets/ui/03-processing-state.png" width="800"/>
+  <img src="./assets/ui/03-processing-state.png" width="300"/>
 </p>
  
 Once complete, the system returns:
