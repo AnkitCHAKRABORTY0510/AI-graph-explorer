@@ -102,6 +102,10 @@ The central workspace contains three functional views:
 <p align="center">
   <img src="./assets/ui/02-query-input.png" width="800"/>
 </p>
+
+<p align="center">
+  <img src="./assets/ui/schema-view.png" width="800"/>
+</p>
  
 ---
  
