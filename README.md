@@ -146,11 +146,6 @@ Nodes represent entities (orders, deliveries, documents). Edges represent the re
 
 Filter results using the search bar, select one or more rows using checkboxes, then switch to Graph View — selected rows are highlighted in the graph for focused analysis.
 
-<p align="center">
-  <img src="./assets/ui/06-table-view.png" width="800"/>
-  <img src="./assets/ui/07-table-selection.png" width="800"/>
-  <img src="./assets/ui/08-graph-highlight.png" width="800"/>
-</p>
 
 ### Natural Language Capability
 
@@ -327,6 +322,12 @@ Click any node to expand related nodes, view relationship direction, and access 
 3. Select one or more rows using checkboxes
 4. Switch to Graph View
 5. Selected entries are highlighted in the graph for focused analysis
+
+<p align="center">
+  <img src="./assets/ui/06-table-view.png" width="800"/>
+  <img src="./assets/ui/07-table-selection.png" width="800"/>
+  <img src="./assets/ui/08-graph-highlight.png" width="800"/>
+</p>
 
 ---
 
