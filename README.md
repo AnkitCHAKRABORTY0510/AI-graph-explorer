@@ -140,9 +140,7 @@ When a query involves relationships between entities:
  
 > **Note:** Graphs are generated only when necessary. Simple queries — such as lists or aggregations — return only table results.
  
-<p align="center">
-  <img src="./assets/ui/05-graph-view.png" width="800"/>
-</p>
+<img src="./assets/ui/node-view.gif" width="800"/>
  
 ---
  
@@ -211,7 +209,7 @@ If the number of nodes exceeds **3,000**:
 - You can revisit and rerun previous queries at any time
  
 <p align="center">
-  <img src="./assets/ui/09-query-history.png" width="800"/>
+  <img src="./assets/ui/09-query-history.png" width="300"/>
 </p>
  
 ### ⚠️ Known Issue
@@ -253,6 +251,6 @@ This system is designed to answer questions related to the dataset only.
 ```
  
 <p align="center">
-  <img src="./assets/ui/11-guardrails.png" width="800"/>
+  <img src="./assets/ui/11-guardrails.png" width="400" />
 </p>
 
