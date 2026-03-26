@@ -455,3 +455,272 @@ The query is also saved to the search history cache so it can be quickly toggled
 | `backend/src/utils/validatePlan.js` | Validates AI plan before execution |
 | `backend/src/services/keyManager.js` | Rotates Gemini API keys on rate limits |
 
+
+## 🏛️ Core Architectural Decisions
+
+### Decision 1: Dual-Database Strategy (PostgreSQL + Neo4j)
+
+**Why not just SQL?**
+
+SQL can answer *"show me all sales orders"* but struggles with *"trace a broken flow across 5 tables"*. Graph databases natively express multi-hop relationships as first-class citizens.
+
+**Why not just Neo4j?**
+
+Neo4j cannot efficiently handle aggregations, filters, and large row scans on 1M+ records. PostgreSQL is optimized for this.
+
+**The solution — hybrid execution:**
+
+```
+User Query
+   │
+   ├── PostgreSQL: "Fetch the actual business records"
+   │         → Returns raw rows (e.g. 5,000 Sales Orders + their Delivery + Billing data)
+   │
+   └── Neo4j: "Build an in-memory relationship graph from those records"
+             → Takes the SQL rows as $rows parameters
+             → MERGEs nodes + relationships into a live graph
+             → Returns visual nodes[] + edges[]
+```
+
+This means the graph is **always backed by real data** — not pre-baked static relationships.
+
+---
+
+### Decision 2: AI-First Query Planning (No Hardcoded Logic)
+
+Rather than writing explicit rule-parsers for every possible query, the system offloads all query planning to **Google Gemini**.
+
+Gemini receives:
+- The full PostgreSQL schema (tables + columns)
+- All relationship definitions (JOIN paths)
+- Strict guardrails (no hallucinated columns, no `LIMIT 100`, always `SELECT DISTINCT`)
+- Conversation history (last 6 messages) for context-aware follow-ups
+
+Gemini returns a structured JSON execution plan — not free text — which the backend validates and executes deterministically. This means the AI is used as a **planner**, not an executor. Business logic stays in code.
+
+---
+
+### Decision 3: Decoupled Frontend Architecture (React Hooks)
+
+All heavy frontend logic is extracted into dedicated custom hooks and Zustand stores:
+
+| Layer | File | Responsibility |
+|---|---|---|
+| UI | `Sidebar.jsx`, `GraphCanvas.jsx` | Render only, no business logic |
+| Logic | `useChatEngine.js` | Query lifecycle, retries, abort |
+| State | `useChatStore.js` | Global messages, history, pagination |
+| Graph State | `useGraphStore.js` | Node/edge data for canvas |
+| API | `services/api.js` | HTTP calls to backend |
+
+This means `Sidebar.jsx` has zero knowledge of *how* a query is sent. It just calls `handleSend()`. This makes features like query history replay and programmatic re-querying trivial.
+
+---
+
+## 📄 Pagination — Handling Thousands of Graph Nodes
+
+Large datasets cannot be rendered as a graph all at once. Rendering 50,000 React Flow nodes would freeze any browser.
+
+**Two-Tier Pagination Strategy:**
+
+### Tier 1: Adaptive Mode (≤ 3,000 rows)
+If the SQL query returns 3,000 or fewer total rows, all rows are used to hydrate the graph simultaneously. This gives the user a complete picture for reasonably sized datasets.
+
+```js
+const itemsPerGraphLoad = 3000;
+const isAdaptive = totalRowsCount > 0 && totalRowsCount <= itemsPerGraphLoad;
+```
+
+### Tier 2: Page-Based Slicing (> 3,000 rows)
+For larger datasets, only the **current page's rows** are used to filter which graph nodes to show.
+
+```js
+const startIndex = (currentPage - 1) * itemsPerPage; // itemsPerPage = 300
+const currentTableData = tableData.slice(startIndex, startIndex + itemsPerPage);
+```
+
+The user can browse through pages in the **Table Canvas**, and the **Graph Canvas updates automatically** to show only the nodes related to that page's records. This is fully reactive — no full re-renders because `GraphCanvas` is wrapped in `React.memo`.
+
+**Connector Node Inclusion:**
+When a node is shown from the current page, all nodes it has **edges to** are also included — even if those nodes aren't in the current page's data. This prevents orphaned, disconnected graph islands.
+
+---
+
+## 💾 Caching — Avoiding Redundant AI Calls
+
+**File:** `backend/src/services/cacheService.js`
+
+Every successfully generated execution plan can be cached to avoid re-querying Gemini for the same question.
+
+**How it works:**
+
+1. The query is **normalized** (lowercased, whitespace trimmed, collapsed).
+2. A **SHA-256 hash** is generated from the normalized query + limit setting + history.
+3. The hash is used as the cache key.
+4. The full execution plan (SQL + Cypher + message + options) is written to a **persistent JSON file** on disk (`data/plan_cache.json`).
+
+```js
+function generateHash(query) {
+  const normalized = query.trim().toLowerCase().replace(/\s+/g, ' ');
+  return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+```
+
+**Advantages:**
+- Survives server restarts (disk-persisted).
+- Semantic deduplication — *"show me sales orders"* and *"Show Me Sales Orders"* map to the same hash.
+- Tracks `usage_count` per plan for analytics.
+
+> **Note:** The cache is currently disabled during debugging (`getPlanFromCache` is commented out in `multiHopService.js`). Re-enable it to drastically reduce Gemini API costs in production.
+
+---
+
+## 🔄 Rate Limiting — Multi-Key + Multi-Model Fallback
+
+**File:** `backend/src/services/keyManager.js`
+
+Gemini's free-tier API has tight rate limits (requests per minute per key). To stay within limits across heavy usage:
+
+### Round-Robin Key Rotation
+
+A `KeyManager` class loads all `GEMINI_API_KEY1` → `GEMINI_API_KEY5` from `.env` at startup.
+
+```js
+rotate() {
+  this.currentIndex = (this.currentIndex + 1) % this.keys.length;
+}
+```
+
+When a `429 Too Many Requests` error is detected, the system immediately rotates to the next key and retries the same model without throwing an error upward.
+
+### Cascading Model Fallback
+
+If **all keys are exhausted** for a given model, the system tries the next model in priority order:
+
+```
+gemini-2.5-flash  (fastest, lowest quota)
+       ↓ if 429 on all keys
+gemini-2.5-pro    (smarter, different quota bucket)
+       ↓ if 429 on all keys
+gemini-2.0-flash
+       ↓ if 429 on all keys
+gemini-3.1-flash-lite-preview
+```
+
+This means a single user query can automatically try up to **20 combinations** (5 keys × 4 models) before finally failing — usually successfully resolving without any user-visible error.
+
+---
+
+## 🔁 Silent Retry — Self-Healing on SQL Failures
+
+**File:** `frontend/src/hooks/useChatEngine.js`
+
+Sometimes Gemini hallucinates a column name or generates a slightly wrong JOIN. Instead of showing an error immediately, the frontend **automatically retries once** with a healing prompt:
+
+```js
+// On first failure:
+await handleSend(queryToUse, {
+  error: gErr.message,
+  hint: gErr.response?.data?.hint
+});
+```
+
+The retry prompt tells Gemini exactly what went wrong:
+
+```
+"The previous execution for query '...' failed with error:
+column 'xyz' does not exist.
+Hint: Check table and column names in schema.json.
+Please fix the query and provide a valid execution plan."
+```
+
+This means transient AI errors are invisible to the user in the majority of cases.
+
+---
+
+## 🧠 Handling More Nodes — Scalability Guide
+
+Currently tested up to ~20,000 SQL rows / ~8,000 graph nodes. Here's how to scale further:
+
+### Short Term (current system)
+| Strategy | Implementation |
+|---|---|
+| Reduce `itemsPerPage` | Lower from 300 → 100 for faster graph updates |
+| Disable adaptive mode | Force page-based mode even for < 3,000 rows |
+| Increase `alphaDecay` | Faster D3 force simulation for sparse graphs |
+
+### Medium Term (next upgrades)
+| Strategy | Effort |
+|---|---|
+| **WebGL Rendering** | Replace React Flow with `sigma.js` or `pixi.js` — handles 100k+ nodes at 60fps |
+| **Clustered Nodes** | Group nodes by type (e.g. all `SalesOrder` nodes collapse into 1 cluster) |
+| **Backend Graph Aggregation** | Pre-aggregate the graph in Neo4j before returning to frontend |
+| **Streaming Responses** | Stream graph node batches progressively instead of one large JSON payload |
+
+### Long Term (production scale)
+| Strategy | Effort |
+|---|---|
+| **Neo4j Graph Data Science** | Use GDS algorithms (PageRank, Community Detection) to surface meaningful subgraphs |
+| **Redis Cache** | Replace the disk-file cache with Redis for shared multi-instance caching |
+| **Worker Threads** | Move SQL execution to Node.js worker threads for non-blocking request handling |
+| **Read Replicas** | Route heavy SELECT queries to PostgreSQL read replicas |
+
+---
+
+## 🚀 Future Improvements
+
+### AI & Query Intelligence
+- [ ] **Intent Classifier** — Pre-classify queries before sending to Gemini (`graph`, `table`, `chat`) to skip expensive AI calls for simple lookups.
+- [ ] **Schema-Aware Autocomplete** — Suggest column/table names in the chat input as you type.
+- [ ] **Query Explainer** — Show users the exact SQL + Cypher that was generated in a collapsible panel.
+
+### Performance
+- [ ] **Virtual Scrolling** — Replace the table pagination with virtualized row rendering (`react-virtual`) to eliminate DOM overhead on large tables.
+- [ ] **Graph Layout Caching** — Cache D3 force simulation results per query hash to avoid re-computing physics on revisit.
+- [ ] **Re-enable Plan Cache** — Remove the debug comment-out in `multiHopService.js` to restore Gemini call deduplication.
+
+### UX
+- [ ] **Graph Minimap** — Add a minimap overlay for navigating large graphs with hundreds of nodes.
+- [ ] **Node Drill-Down** — Click a node to load its detailed sub-graph on demand (lazy graph expansion).
+- [ ] **Export** — Export graph as PNG/SVG or table as CSV/Excel directly from the UI.
+
+### Infrastructure
+- [ ] **Horizontal Scaling** — Move from PM2 single-instance to a PM2 cluster mode (`pm2 start index.js -i max`).
+- [ ] **SSL / HTTPS** — Set up Certbot + Let's Encrypt on the Nginx server for production-grade HTTPS.
+- [ ] **Health Dashboard** — Surface backend logs, cache hit rate, API key usage, and response time in a real-time admin panel.
+- [ ] **CI/CD Pipeline** — GitHub Actions workflow: on push to `main`, `scp` new files to EC2 and trigger `runner.sh` automatically.
+
+---
+
+## 📁 Full Project Structure
+
+```
+graph-Explorer/
+├── frontend/
+│   └── src/
+│       ├── components/      # Pure UI (GraphCanvas, Sidebar, Topbar)
+│       ├── hooks/           # Business logic (useChatEngine)
+│       ├── store/           # Global state (useChatStore, useGraphStore)
+│       └── services/        # API calls (api.js)
+│
+├── backend/
+│   ├── index.js             # Express entry point + route registration
+│   └── src/
+│       ├── config/          # DB connections (db.js, neo4j.js, schema.json)
+│       ├── controllers/     # HTTP request handlers (aiController, graphController)
+│       ├── routes/          # Route definitions (ai.js, graph.js, schema.js)
+│       ├── services/        # Core logic
+│       │   ├── promptGenerator.js    # Gemini AI + key rotation
+│       │   ├── multiHopService.js    # Orchestrates SQL + Cypher execution
+│       │   ├── executionQueue.js     # PostgreSQL query runner
+│       │   ├── neo4jService.js       # Cypher executor
+│       │   ├── cacheService.js       # SHA-256 disk plan cache
+│       │   └── keyManager.js         # Round-robin API key rotation
+│       └── utils/           # Helpers (schemaLoader, validatePlan)
+│
+├── runner.sh                # One-command production restart script
+├── README.md                # Project overview
+├── QUERY_PIPELINE.md        # End-to-end query flow documentation
+└── ARCHITECTURE.md          # This file
+```
+
+
