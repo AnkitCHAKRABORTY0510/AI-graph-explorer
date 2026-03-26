@@ -41,10 +41,6 @@ Copy
 
 # Dodge-AI Graph Explorer
  
-<p align="center">
-  <img src="./assets/ui/node-interaction.gif" width="800"/>
-</p>
- 
 > A natural language-powered graph exploration tool for navigating complex datasets through conversation, visual graphs, and structured tables.
  
 ---
